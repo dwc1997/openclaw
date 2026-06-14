@@ -63,6 +63,7 @@ async function createStartupCatchupHarness(jobId: string) {
     log: logger,
     enqueueSystemEvent: () => {},
     requestHeartbeat: () => {},
+    runIsolatedAgentJob: async () => ({ status: "ok" as const }),
     runCommandJob: async () => {
       entered.resolve();
       await release.promise;
@@ -111,6 +112,7 @@ describe("cron activeJobIds — startup catch-up mark/clear", () => {
       log: logger,
       enqueueSystemEvent: () => {},
       requestHeartbeat: () => {},
+      runIsolatedAgentJob: async () => ({ status: "ok" as const }),
       runCommandJob: async () => {
         throw new Error("command failed");
       },
