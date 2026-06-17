@@ -401,10 +401,10 @@ function parseLocalAssistantAvatarMap(raw: string): {
 
 function persistLocalAssistantAvatarMap(storage: Storage | null, avatars: Record<string, string>) {
   if (Object.keys(avatars).length === 0) {
-    storage?.removeItem(LOCAL_ASSISTANT_IDENTITY_KEY);
+    storage?.removeItem(localAssistantIdentityKey());
     return;
   }
-  storage?.setItem(LOCAL_ASSISTANT_IDENTITY_KEY, JSON.stringify({ avatars }));
+  storage?.setItem(localAssistantIdentityKey(), JSON.stringify({ avatars }));
 }
 
 export function loadLocalAssistantIdentity(opts?: {
@@ -448,7 +448,7 @@ export function saveLocalAssistantIdentity(next: LocalAssistantIdentity) {
   }
   const storage = getSafeLocalStorage();
   try {
-    const raw = storage?.getItem(LOCAL_ASSISTANT_IDENTITY_KEY);
+    const raw = storage?.getItem(localAssistantIdentityKey());
     const avatars = raw
       ? parseLocalAssistantAvatarMap(raw).avatars
       : (Object.create(null) as Record<string, string>);
