@@ -344,6 +344,7 @@ export default definePluginEntry({
     registerGoogleGeminiCliProvider(api);
     registerGoogleProvider(api);
     api.registerMemoryEmbeddingProvider(geminiMemoryEmbeddingProviderAdapter);
+    api.registerMemoryEmbeddingProvider({ ...geminiMemoryEmbeddingProviderAdapter, id: "google" });
     api.registerImageGenerationProvider(createLazyGoogleImageGenerationProvider());
     api.registerMediaUnderstandingProvider(createLazyGoogleMediaUnderstandingProvider());
     api.registerMusicGenerationProvider(createLazyGoogleMusicGenerationProvider());
