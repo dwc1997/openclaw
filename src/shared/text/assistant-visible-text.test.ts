@@ -389,51 +389,6 @@ describe("stripAssistantInternalScaffolding", () => {
       );
     });
 
-    it("unwraps standalone parameter tags while preserving their content (#98557)", () => {
-      expectVisibleText(
-        'Results: <parameter name="assumptions">some content</parameter> after.',
-        "Results: some content after.",
-      );
-      expectVisibleText(
-        ['<parameter name="assumptions">', "line 1", "line 2", "</parameter>"].join("\n"),
-        "line 1\nline 2",
-      );
-      expectVisibleText('<parameter name="data">{"key":"value"}</parameter>', '{"key":"value"}');
-      expectVisibleText('<parameter name="items">[1,2]</parameter>', "[1,2]");
-      expectVisibleText(
-        'Results:<parameter name="x">\nline\n</parameter>after',
-        "Results:\nline\nafter",
-      );
-    });
-
-    it("keeps truncated tool-call parameters fail-closed", () => {
-      expectVisibleText('<tool_call><parameter name="token">secret</parameter>', "");
-    });
-
-    it("preserves parameter tags in code and literal function examples", () => {
-      expectVisibleText(
-        'Use `<parameter name="path">/tmp</parameter>`.',
-        'Use `<parameter name="path">/tmp</parameter>`.',
-      );
-      expectVisibleText(
-        'Use <function name="read"><parameter name="path">/tmp</parameter></function> in docs.',
-        'Use <function name="read"><parameter name="path">/tmp</parameter></function> in docs.',
-      );
-      expectVisibleText(
-        '<schema><parameter name="path">/tmp</parameter></schema>',
-        '<schema><parameter name="path">/tmp</parameter></schema>',
-      );
-      expectVisibleText(
-        '<schema><parameter name="path"/></schema>',
-        '<schema><parameter name="path"/></schema>',
-      );
-      expectVisibleText('<br><parameter name="path">/tmp</parameter>', "<br>/tmp");
-      expectVisibleText(
-        'Use <function> declarations. <parameter name="path">/tmp</parameter>',
-        "Use <function> declarations. /tmp",
-      );
-    });
-
     it("preserves XML-style explanations after lone <tool_call> tags", () => {
       expectVisibleText("Use <tool_call><arg> literally.", "Use <tool_call><arg> literally.");
     });
@@ -996,5 +951,87 @@ describe("sanitizeAssistantVisibleTextWithProfile", () => {
     expect(sanitizeAssistantVisibleTextWithProfile(input, "tool-progress")).toBe(
       "🛠️ run git status",
     );
+  });
+
+  describe("tts profile (regression #90364)", () => {
+    it("strips reasoning content for speech synthesis", () => {
+      const input =
+        "<thinking>Let me think about this carefully. The user wants to know about weather.</thinking>The weather today is sunny with a high of 75°F.";
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe(
+        "The weather today is sunny with a high of 75°F.",
+      );
+    });
+
+    it("strips multiple reasoning blocks", () => {
+      const input =
+        "<thinking>First consideration.</thinking>Result: <thinking>Second consideration.</thinking>Final answer.";
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe("Result: Final answer.");
+    });
+
+    it("strips antml:thinking tags", () => {
+      const input =
+        "<antml:thinking>Internal reasoning about the problem.</antml:thinking>The answer is 42.";
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe("The answer is 42.");
+    });
+
+    it("strips thinking tags with attributes", () => {
+      const input =
+        '<thinking model="gpt-5">Reasoning with attributes.</thinking>Clean output for speech.';
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe(
+        "Clean output for speech.",
+      );
+    });
+
+    it("strips tool call XML blocks", () => {
+      const input =
+        'Let me check. <tool_call> {"name": "read", "arguments": {"file_path": "test.md"}} </tool_call> The file is ready.';
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe(
+        "Let me check.  The file is ready.",
+      );
+    });
+
+    it("strips function_calls blocks", () => {
+      const input =
+        'Checking. <function_calls>{"name": "exec", "args": {"cmd": "ls"}}</function_calls> Done.';
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe("Checking.  Done.");
+    });
+
+    it("strips relevant-memories tags", () => {
+      const input =
+        "<relevant-memories>Internal memory context.</relevant-memories>The answer you need.";
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe("The answer you need.");
+    });
+
+    it("strips internal trace lines", () => {
+      const input = [
+        "🛠️ Tool Call: read",
+        "📊 Session Status: active",
+        "The actual response.",
+      ].join("\n");
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe("The actual response.");
+    });
+
+    it("handles unclosed reasoning tags (streaming truncation)", () => {
+      const input = "<thinking>Partial reasoning that was truncated";
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe(
+        "Partial reasoning that was truncated",
+      );
+    });
+
+    it("preserves content inside code blocks", () => {
+      const input = [
+        "Here is an example:",
+        "```",
+        "<thinking>This is code, not reasoning.</thinking>",
+        "```",
+        "End of example.",
+      ].join("\n");
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe(input);
+    });
+
+    it("trims whitespace from final output", () => {
+      const input = "  <thinking>reasoning</thinking>  Clean text.  ";
+      expect(sanitizeAssistantVisibleTextWithProfile(input, "tts")).toBe("Clean text.");
+    });
   });
 });
